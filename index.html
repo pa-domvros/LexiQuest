@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexiQuest: Idiom Atlas</title>
+    <style>
+        /* --- FONT & GLOBAL STYLES --- */
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@400;700&display=swap');
+
+        :root {
+            --aegean-blue: #006994;
+            --sun-white: #F5F5F5;
+            --terracotta-orange: #E2725B;
+            --olive-green: #556B2F;
+            --mythic-gold: #D4AF37;
+            --stone-grey: #b0b0b0;
+            --dark-text: #00334E;
+            --dark-bg: #1a2634;
+            --success-green: #28a745;
+            --fail-red: #dc3545;
+            --parchment-text: #FDF5E6; 
+            --cinnamon-text: #965A3E;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Cinzel', serif;
+            background-color: var(--dark-bg);
+            color: var(--dark-text);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* --- SCREEN MANAGEMENT --- */
+        .screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+
+        .screen.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+        
+        /* --- MAP SCREEN --- */
+        #map-screen {
+            background-color: var(--dark-bg);
+        }
+
+        .map-container {
+            position: relative;
+            width: 95vw;
+            max-width: 900px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .map-container .title-overlay {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--parchment-text);
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+        }
+
+        .map-container .title-overlay h1 { font-size: 4em; margin: 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.8); }
+        
+        .map-container .bottom-overlay {
+            position: absolute;
+            bottom: 12%; /* Adjusted position upwards (doubled from 6%) */
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--sun-white);
+            font-weight: bold;
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+            width: 100%;
+        }
+
+        .map-container .bottom-overlay p { 
+            font-size: 1.2em; 
+            margin: 5px 0 0 0; 
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.9);
+        }
+        .map-container .credit-line { 
+            font-family: 'Lato', sans-serif;
+            text-transform: none;
+            font-size: 6px;
+            font-style: italic; 
+            opacity: 0.8; 
+            margin-top: 20px; /* Increased from 10px */
+        }
+        .map-container svg { width: 100%; height: auto; display: block; }
+
+       #start-journey-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(145deg, rgba(230, 230, 230, 0.8), rgba(255, 255, 255, 0.02));
+    border: 2px solid rgba(160, 160, 160, 0.1);
+    border-radius: 15px;
+    padding: 20px 30px;
+    font-family: 'Cinzel', serif;
+    font-size: 1.5em;
+    color: var(--dark-text);
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    transition: all 0.2s ease-in-out;
+    z-index: 20;
+    pointer-events: auto;
+    /* Optional: You can also add backdrop-filter for a frosted glass effect */
+    backdrop-filter: blur(2px);
+}
+        #start-journey-btn:hover {
+            transform: translate(-50%, -52%);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        #start-journey-btn span { margin-right: 10px; }
+
+
+        /* --- HUB & CHALLENGE SCREEN SHARED --- */
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.2);
+            color: var(--dark-text);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-family: 'Lato', sans-serif;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 20;
+        }
+        .back-btn:hover { background-color: rgba(0,0,0,0.2); }
+
+        /* --- HUB SCREEN --- */
+        #hub-screen {
+            background-color: var(--sun-white);
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            justify-content: flex-start;
+        }
+        
+        .hub-container { max-width: 1200px; margin: 0 auto; text-align: center; width: 100%; padding-top: 20px; }
+        .hub-container h1 { color: var(--aegean-blue); font-size: 3em; margin-bottom: 0; }
+        .hub-container p { font-size: 1.2em; color: var(--olive-green); margin-top: 5px; }
+
+        .idiom-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 25px;
+            margin-top: 40px;
+            padding-bottom: 80px;
+        }
+
+        .medallion {
+            background-color: white; border-radius: 50%; aspect-ratio: 1 / 1;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); transition: all 0.2s ease-in-out;
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; padding: 10px; box-sizing: border-box;
+            border: 4px solid transparent;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+        
+        .medallion .text-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 8px 5px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .medallion.locked { filter: grayscale(100%); cursor: not-allowed; }
+        .medallion.unlocked { cursor: pointer; animation: glow 2s infinite ease-in-out; }
+        .medallion.completed { border-color: var(--mythic-gold); cursor: pointer; }
+        
+        .medallion.unlocked:hover, .medallion.completed:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2); }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), 0 0 5px rgba(226, 114, 91, 0.3); border-color: var(--terracotta-orange); }
+            50% { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), 0 0 20px rgba(226, 114, 91, 0.7); border-color: #ff9d85; }
+        }
+
+        /* --- CHALLENGE SCREEN --- */
+        #challenge-screen {
+            background: linear-gradient(to bottom, #e0eafc, #cfdef3);
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            justify-content: flex-start;
+        }
+        
+        .challenge-container {
+            background-color: var(--sun-white);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 80px;
+            position: relative;
+        }
+
+        .challenge-title { font-size: 2.5em; color: var(--aegean-blue); margin-bottom: 10px; }
+        .challenge-subtitle { font-size: 1.2em; color: var(--terracotta-orange); margin-bottom: 30px; font-weight: bold; }
+        .challenge-content { min-height: 200px; }
+        .story-fill-sentence { font-size: 1.5em; margin: 20px 0; line-height: 1.6; text-transform: none; } /* Added text-transform: none */
+        .options-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 20px; }
+
+        .option-btn {
+            background-color: white; border: 2px solid var(--aegean-blue); color: var(--aegean-blue);
+            padding: 15px; border-radius: 10px; font-family: 'Cinzel', serif;
+            font-size: 1.1em; cursor: pointer; transition: all 0.2s; font-weight: bold;
+        }
+
+.story-fill-sentence {
+    font-family: 'Lato', sans-serif; /* Or use a system font like Arial */
+    text-transform: none !important; /* Force normal case */
+    font-weight: normal; /* Optional: Remove bold if needed */
+}
+        .option-btn:hover { background-color: #eef5ff; }
+        .option-btn.correct { background-color: var(--success-green); color: white; border-color: var(--success-green); }
+        .option-btn.incorrect { background-color: var(--fail-red); color: white; border-color: var(--fail-red); }
+
+        .match-container { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+        .match-column { width: 100%; min-width: 250px; flex-grow: 1; }
+        .match-item { padding: 15px; margin-bottom: 10px; border: 2px solid var(--dark-text); border-radius: 8px; cursor: grab; transition: background-color 0.2s; }
+        .match-item.selected { border-style: dashed; background-color: #fff8e1; }
+        .match-item.matched { background-color: var(--success-green); color: white; border-color: var(--success-green); cursor: default; }
+
+        .feedback { font-size: 1.5em; font-weight: bold; margin-top: 20px; }
+        .feedback.correct { color: var(--success-green); }
+        .feedback.incorrect { color: var(--fail-red); }
+
+        /* --- VICTORY/COMPLETION SCREENS --- */
+        #victory-screen, #completion-screen { background-color: rgba(0,0,0,0.7); backdrop-filter: blur(5px); }
+
+        .victory-box, .completion-box {
+            background: var(--sun-white); padding: 40px; border-radius: 20px;
+            text-align: center; box-shadow: 0 0 30px rgba(212, 175, 55, 0.5); border: 5px solid var(--mythic-gold);
+        }
+
+        .victory-box h2, .completion-box h2 { font-size: 3em; color: var(--mythic-gold); margin: 0; }
+        .victory-box p, .completion-box p { font-size: 1.2em; }
+        
+        .victory-box button, .completion-box button {
+            background-color: var(--terracotta-orange); color: white; border: none;
+            padding: 15px 30px; font-family: 'Cinzel', serif; font-size: 1.2em;
+            border-radius: 10px; cursor: pointer; margin-top: 20px;
+        }
+        
+        /* --- FOOTER --- */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: var(--sun-white);
+            text-align: center;
+            padding: 8px 0;
+            font-family: 'Lato', sans-serif;
+            text-transform: none;
+            font-size: 0.75em;
+            z-index: 100;
+            pointer-events: none;
+        }
+        footer p { margin: 2px 0; opacity: 0.7; }
+        footer a { color: var(--sun-white); text-decoration: none; pointer-events: auto; }
+        footer a:hover { text-decoration: underline; }
+
+    </style>
+</head>
+<body>
+
+    <!-- SCREENS -->
+    <div id="map-screen" class="screen active">
+        <div class="map-container">
+            <div class="title-overlay">
+                <h1>LexiQuest</h1>
+            </div>
+            
+            <svg viewBox="0 0 800 600">
+                <image href="images/ancient-greece.jpg" width="800" height="600" />
+            </svg>
+
+            <button id="start-journey-btn"><span>🔑</span>Start Journey</button>
+
+            <div class="bottom-overlay">
+                <p>Your journey through language begins...</p>
+                <p class="credit-line">Devised by Panagiotis Domvros, English and Drama Teacher</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="hub-screen" class="screen">
+        <button id="hub-back-btn" class="back-btn">&larr; Back to Map</button>
+        <div class="hub-container">
+            <h1>The Hellenic Journey</h1>
+            <p>Select a medallion to continue your quest.</p>
+            <div id="idiom-grid-container" class="idiom-grid"></div>
+        </div>
+    </div>
+
+    <div id="challenge-screen" class="screen">
+        <div class="challenge-container">
+            <button id="challenge-back-btn" class="back-btn">&larr; Back to Hub</button>
+            <h2 id="challenge-title" class="challenge-title">Idiom Title</h2>
+            <h3 id="challenge-subtitle" class="challenge-subtitle">Challenge 1 of 3: The Match-Up</h3>
+            <div id="challenge-content" class="challenge-content"></div>
+            <div id="challenge-feedback" class="feedback"></div>
+        </div>
+    </div>
+
+    <div id="victory-screen" class="screen">
+        <div class="victory-box">
+            <h2>Victory!</h2>
+            <p id="victory-text">You have mastered the idiom!</p>
+            <button id="victory-continue-btn">Continue Quest</button>
+        </div>
+    </div>
+    
+    <div id="completion-screen" class="screen">
+        <div class="completion-box">
+            <h2>Congratulations!</h2>
+            <p>You have completed The Hellenic Journey and mastered all 30 idioms. A true scholar!</p>
+            <button id="restart-btn">Start Again</button>
+        </div>
+    </div>
+
+    <!-- FOOTER ELEMENT -->
+    <footer>
+        <p>Devised by Panagiotis Domvros, English and Drama Teacher, All Rights Reserved</p>
+        <p><a href="mailto:pa.domvros@gmail.com">pa.domvros@gmail.com</a></p>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- DATA STRUCTURE ---
+        const originalIdiomData = [
+            { id: "odyssey-soul", name: "Odyssey of the soul", meaning: "A long, arduous, and transformative journey.", storyFill: { sentence: "His decade abroad was an ______ that changed him completely.", options: ["Odyssey of the soul", "Midas touch", "Siren song"], correct: 0 }, originQuiz: { question: "Who was the hero of the epic poem 'The Odyssey'?", options: ["Hercules", "Odysseus", "Achilles"], correct: 1 } },
+            { id: "achilles-heel", name: "Achilles' heel", meaning: "A fatal weakness in an otherwise powerful person.", storyFill: { sentence: "The brilliant strategist's short temper was his ______.", options: ["Procrustean bed", "Achilles' heel", "Apollo's gift"], correct: 1 }, originQuiz: { question: "Which river gave Achilles his invulnerability?", options: ["The Nile", "The Lethe", "The Styx"], correct: 2 } },
+            { id: "sword-damocles", name: "Sword of Damocles", meaning: "A sense of imminent and constant danger.", storyFill: { sentence: "For the leader, the threat of rebellion was a constant ______.", options: ["Sword of Damocles", "Golden fleece", "Elysian fields"], correct: 0 }, originQuiz: { question: "What was the sword hanging by in the myth?", options: ["A golden chain", "A single horsehair", "A spider's thread"], correct: 1 } },
+            { id: "pandoras-box", name: "Pandora's box", meaning: "An action that creates many unforeseen problems.", storyFill: { sentence: "Investigating the minor error opened a ______ of company-wide fraud.", options: ["Cup of Lethe", "Pandora's box", "Nemesis approaches"], correct: 1 }, originQuiz: { question: "What was the last thing left inside Pandora's box?", options: ["Hope", "Fear", "Love"], correct: 0 } },
+            { id: "midas-touch", name: "Midas touch", meaning: "The ability to make any venture profitable.", storyFill: { sentence: "Everything the investor supports turns to gold; she has the ______.", options: ["Medusa stare", "Midas touch", "Phaethon's ride"], correct: 1 }, originQuiz: { question: "What did King Midas tragically turn to gold?", options: ["His horse", "His daughter", "His crown"], correct: 1 } },
+            { id: "fly-too-close", name: "To fly too close to the sun", meaning: "To be overly ambitious, leading to one's downfall.", storyFill: { sentence: "The company took on massive debt for an expansion it couldn't sustain and ______.", options: ["Met its Minotaur", "Flew too close to the sun", "Opened the gates of Hades"], correct: 1 }, originQuiz: { question: "What were the wings of Icarus made of?", options: ["Feathers and wax", "Wood and cloth", "Magic and light"], correct: 0 } },
+            { id: "procrustean-bed", name: "Procrustean bed", meaning: "An arbitrary standard to which something is forced to conform.", storyFill: { sentence: "The school's rigid curriculum was a ______, ignoring students' diverse needs.", options: ["Procrustean bed", "Delphic utterance", "Labyrinthine logic"], correct: 0 }, originQuiz: { question: "What did Procrustes do to his guests?", options: ["Fed them lavishly", "Stretched or cut them to fit a bed", "Told them riddles"], correct: 1 } },
+            { id: "siren-song", name: "Siren song", meaning: "An appeal that is alluring but ultimately dangerous.", storyFill: { sentence: "The promise of getting rich quickly was a ______ that led to a bad investment.", options: ["Siren song", "Face that launched a thousand ships", "Atlas carries the world"], correct: 0 }, originQuiz: { question: "What did the Sirens use to lure sailors to their doom?", options: ["Beautiful lights", "Enchanting singing", "Illusions of treasure"], correct: 1 } },
+            { id: "aphrodites-beauty", name: "Aphrodite's beauty", meaning: "Exceptional beauty or charm.", storyFill: { sentence: "The lead actress was said to possess ______, captivating everyone on screen.", options: ["Aphrodite's beauty", "Harpies descended", "Protean changes"], correct: 0 }, originQuiz: { question: "Aphrodite was the Greek goddess of what?", options: ["War and wisdom", "Love and beauty", "The harvest and nature"], correct: 1 } },
+            { id: "apollos-gift", name: "Apollo's gift", meaning: "Outstanding talent in music or the arts.", storyFill: { sentence: "The young pianist clearly had ______, composing masterpieces at only ten.", options: ["A Delphic utterance", "Apollo's gift", "A Tantalizing offer"], correct: 1 }, originQuiz: { question: "Apollo was the Greek god of many things, including...?", options: ["The sea", "Music", "The underworld"], correct: 1 } },
+            { id: "atlas-carries", name: "Atlas carries the world", meaning: "To bear an extremely heavy burden or responsibility.", storyFill: { sentence: "As CEO of the struggling company, she felt she had to ______.", options: ["Ride the dragon", "Sleep like Endymion", "Atlas carries the world"], correct: 2 }, originQuiz: { question: "In mythology, what was Atlas condemned to hold up?", options: ["The Earth", "The Heavens", "The Sun"], correct: 1 } },
+            { id: "rock-hard-place", name: "Between a rock and a hard place", meaning: "To be in a dilemma between two difficult options.", storyFill: { sentence: "The company was ______: either lay off employees or face bankruptcy.", options: ["Between a rock and a hard place", "In the Elysian fields", "On Mount Olympus"], correct: 0 }, originQuiz: { question: "This idiom refers to sailing between Scylla and which other peril?", options: ["The Minotaur", "Charybdis", "The Hydra"], correct: 1 } },
+            { id: "cup-of-lethe", name: "Cup of Lethe", meaning: "Choosing to forget something painful; willful ignorance.", storyFill: { sentence: "After the betrayal, he wished he could drink from the ______.", options: ["Cup of Lethe", "Golden fleece", "Sword of Damocles"], correct: 0 }, originQuiz: { question: "In the Greek underworld, Lethe was the river of...?", options: ["Fire", "Forgetfulness", "Life"], correct: 1 } },
+            { id: "delphic-utterance", name: "Delphic utterance", meaning: "A statement that is mysterious or ambiguous.", storyFill: { sentence: "The consultant's advice was a ______, leaving us with more questions.", options: ["Nemesis approaches", "Delphic utterance", "Midas touch"], correct: 1 }, originQuiz: { question: "The Oracle at Delphi was also known as the...?", options: ["Pythia", "Sibyl", "Cassandra"], correct: 0 } },
+            { id: "echo-fades", name: "Echo fades", meaning: "A person or idea that repeats others without originality.", storyFill: { sentence: "His speech was just an ______ of the party's official talking points.", options: ["Echo fades", "Odyssey of the soul", "Achilles' heel"], correct: 0 }, originQuiz: { question: "The nymph Echo was cursed by which goddess?", options: ["Athena", "Artemis", "Hera"], correct: 2 } },
+            { id: "elysian-fields", name: "Elysian fields", meaning: "A state or place of perfect peace and happiness.", storyFill: { sentence: "For the soldiers, returning home was like reaching the ______.", options: ["Gates of Hades", "Procrustean bed", "Elysian fields"], correct: 2 }, originQuiz: { question: "The Elysian Fields were the final resting place for...?", options: ["All mortals", "The heroic and virtuous", "Only the gods"], correct: 1 } },
+            { id: "face-launched", name: "Face that launched a thousand ships", meaning: "A person whose beauty can cause major conflict.", storyFill: { sentence: "The story's princess was the ______, as two kingdoms went to war.", options: ["Face that launched a thousand ships", "Siren song", "Pandora's box"], correct: 0 }, originQuiz: { question: "This idiom refers to which legendary beauty?", options: ["Helen of Troy", "Cleopatra", "Penelope"], correct: 0 } },
+            { id: "golden-fleece", name: "Golden fleece", meaning: "A prize that is highly valuable but difficult to obtain.", storyFill: { sentence: "For the team, a cure for the disease was their ______.", options: ["Golden fleece", "Midas touch", "Apollo's gift"], correct: 0 }, originQuiz: { question: "Which hero led the Argonauts to find the Golden Fleece?", options: ["Perseus", "Theseus", "Jason"], correct: 2 } },
+            { id: "harpies-descended", name: "Harpies descended", meaning: "The arrival of destructive, greedy, or cruel people.", storyFill: { sentence: "When the will was read, the ______, fighting over every item.", options: ["Harpies descended", "Elysian fields", "Norns weaved fate"], correct: 0 }, originQuiz: { question: "Harpies were mythological creatures that were part woman and part...?", options: ["Fish", "Bird", "Snake"], correct: 1 } },
+            { id: "labyrinthine-logic", name: "Labyrinthine logic", meaning: "Reasoning that is incredibly complex and confusing.", storyFill: { sentence: "I couldn't follow the lawyer's ______ during the trial.", options: ["Delphic utterance", "Labyrinthine logic", "Odyssey of the soul"], correct: 1 }, originQuiz: { question: "The Labyrinth was built to contain which monster?", options: ["The Hydra", "The Chimera", "The Minotaur"], correct: 2 } },
+            { id: "medusa-stare", name: "Medusa stare", meaning: "A look so paralyzing or intimidating it turns one to stone.", storyFill: { sentence: "The librarian silenced the students with a single ______.", options: ["Medusa stare", "Siren song", "Cup of Lethe"], correct: 0 }, originQuiz: { question: "Which hero famously slew Medusa?", options: ["Hercules", "Perseus", "Bellerophon"], correct: 1 } },
+            { id: "mount-olympus", name: "Mount Olympus level", meaning: "The highest possible level of excellence or achievement.", storyFill: { sentence: "Her performance in the Olympic final was on a ______.", options: ["Procrustean bed", "Mount Olympus level", "Phaethon's ride"], correct: 1 }, originQuiz: { question: "Mount Olympus was the mythical home of the...?", options: ["Titans", "Greek Gods", "Muses"], correct: 1 } },
+            { id: "nemesis-approaches", name: "Nemesis approaches", meaning: "The arrival of inevitable and just retribution.", storyFill: { sentence: "After years of cheating, the company saw its ______ in a government audit.", options: ["Nemesis approaches", "Golden fleece", "Elysian fields"], correct: 0 }, originQuiz: { question: "Nemesis was the goddess of...?", options: ["Vengeance", "Love", "Wisdom"], correct: 0 } },
+            { id: "narcissists-reflection", name: "Narcissist's reflection", meaning: "A state of extreme self-obsession and vanity.", storyFill: { sentence: "He was so caught in a ______ he couldn't see how his actions affected others.", options: ["Narcissist's reflection", "Delphic utterance", "Cup of Lethe"], correct: 0 }, originQuiz: { question: "What did Narcissus fall in love with?", options: ["A goddess", "A statue", "His own reflection"], correct: 2 } },
+            { id: "gates-of-hades", name: "Opening the gates of Hades", meaning: "To unleash chaos, death, or destructive forces.", storyFill: { sentence: "Releasing that computer virus would be like ______.", options: ["Opening the gates of Hades", "Finding the Golden Fleece", "Sleeping like Endymion"], correct: 0 }, originQuiz: { question: "Hades was the Greek god of the...?", options: ["Sky", "Sea", "Underworld"], correct: 2 } },
+            { id: "phaethons-ride", name: "Phaethon's ride", meaning: "An act of reckless ambition that ends in disaster.", storyFill: { sentence: "Letting the intern lead the project was a ______ from the start.", options: ["Phaethon's ride", "Midas touch", "Odyssey of the soul"], correct: 0 }, originQuiz: { question: "Phaethon attempted to drive the chariot of which god?", options: ["Zeus (Lightning)", "Helios (The Sun)", "Poseidon (The Sea)"], correct: 1 } },
+            { id: "protean-changes", name: "Protean changes", meaning: "Frequent, rapid, and unpredictable changes.", storyFill: { sentence: "The startup has undergone ______, shifting its business model every few months.", options: ["Protean changes", "A Delphic utterance", "A Nemesis approaches"], correct: 0 }, originQuiz: { question: "The sea-god Proteus was known for his ability to...?", options: ["Control the weather", "Change his shape", "Speak to animals"], correct: 1 } },
+            { id: "tantalizing-offer", name: "Tantalizing offer", meaning: "A temptation that is desirable but just out of reach.", storyFill: { sentence: "The job was a ______, but the qualifications made it impossible.", options: ["Tantalizing offer", "Procrustean bed", "Sword of Damocles"], correct: 0 }, originQuiz: { question: "Tantalus was punished by being unable to reach fruit and...?", options: ["Water", "Gold", "Rest"], correct: 0 } },
+            { id: "meet-minotaur", name: "To meet your Minotaur", meaning: "To confront your deepest fear or a formidable enemy.", storyFill: { sentence: "Going to therapy was his way of preparing to ______.", options: ["Sleep like Endymion", "Meet his Minotaur", "Ride the dragon"], correct: 1 }, originQuiz: { question: "The Minotaur was half-man and half...?", options: ["Lion", "Eagle", "Bull"], correct: 2 } },
+            { id: "sleep-endymion", name: "To sleep like Endymion", meaning: "To rest in a state of eternal beauty or deep slumber.", storyFill: { sentence: "After the week-long hike, she was ready to ______.", options: ["Open the gates of Hades", "Sleep like Endymion", "Meet her Minotaur"], correct: 1 }, originQuiz: { question: "Which goddess put Endymion into an eternal sleep?", options: ["Aphrodite (Love)", "Hera (Marriage)", "Selene (The Moon)"], correct: 2 } },
+        ];
+
+        // --- REORDER DATA BASED ON USER LIST ---
+        const orderedIds = [
+            "elysian-fields", "aphrodites-beauty", "apollos-gift", "atlas-carries", "rock-hard-place",
+            "cup-of-lethe", "delphic-utterance", "echo-fades", "achilles-heel", "face-launched",
+            "golden-fleece", "harpies-descended", "labyrinthine-logic", "medusa-stare", "midas-touch",
+            "mount-olympus", "narcissists-reflection", "nemesis-approaches", "odyssey-soul", "gates-of-hades",
+            "pandoras-box", "phaethons-ride", "procrustean-bed", "protean-changes", "siren-song",
+            "sword-damocles", "tantalizing-offer", "fly-too-close", "meet-minotaur", "sleep-endymion"
+        ];
+
+        let idiomData = orderedIds.map(id => {
+            const foundIdiom = originalIdiomData.find(idiom => idiom.id === id);
+            if (!foundIdiom) console.error(`Could not find idiom with id: ${id}`);
+            return foundIdiom;
+        }).filter(Boolean); // Filter out any not found
+
+
+        // --- STATE MANAGEMENT ---
+        let currentIdiomIndex = 0;
+        let currentChallengeType = 0; // 0: Match, 1: Fill, 2: Quiz
+        let matchGameData = { selectedItem: null, matchedPairs: 0 };
+
+        const screens = {
+            map: document.getElementById('map-screen'),
+            hub: document.getElementById('hub-screen'),
+            challenge: document.getElementById('challenge-screen'),
+            victory: document.getElementById('victory-screen'),
+            completion: document.getElementById('completion-screen'),
+        };
+
+        const elements = {
+            startJourneyBtn: document.getElementById('start-journey-btn'),
+            gridContainer: document.getElementById('idiom-grid-container'),
+            hubBackBtn: document.getElementById('hub-back-btn'),
+            challengeBackBtn: document.getElementById('challenge-back-btn'),
+            challengeTitle: document.getElementById('challenge-title'),
+            challengeSubtitle: document.getElementById('challenge-subtitle'),
+            challengeContent: document.getElementById('challenge-content'),
+            challengeFeedback: document.getElementById('challenge-feedback'),
+            victoryText: document.getElementById('victory-text'),
+            victoryBtn: document.getElementById('victory-continue-btn'),
+            restartBtn: document.getElementById('restart-btn'),
+        };
+
+        // --- CORE FUNCTIONS ---
+
+        function showScreen(screenId) {
+            Object.values(screens).forEach(screen => {
+                screen.classList.remove('active');
+            });
+            screens[screenId].classList.add('active');
+        }
+
+        function saveProgress() {
+            const progress = idiomData.map(idiom => ({ id: idiom.id, status: idiom.status }));
+            localStorage.setItem('lexiQuestProgress', JSON.stringify(progress));
+        }
+
+        function loadProgress() {
+            const savedProgress = JSON.parse(localStorage.getItem('lexiQuestProgress'));
+            if (savedProgress) {
+                idiomData.forEach((idiom, index) => {
+                    const savedIdiom = savedProgress.find(s => s.id === idiom.id);
+                    if (savedIdiom) {
+                        idiom.status = savedIdiom.status;
+                    }
+                });
+            } else {
+                // First time playing
+                idiomData.forEach((idiom, index) => {
+                    idiom.status = index === 0 ? 'unlocked' : 'locked';
+                });
+            }
+        }
+
+        function renderHub() {
+            elements.gridContainer.innerHTML = '';
+            idiomData.forEach((idiom, index) => {
+                const medallion = document.createElement('div');
+                medallion.className = `medallion ${idiom.status}`;
+                medallion.style.backgroundImage = `url('images/${orderedIds.indexOf(idiom.id) + 1}.jpg')`;
+                medallion.dataset.index = index;
+
+                const textOverlay = document.createElement('div');
+                textOverlay.className = 'text-overlay';
+                textOverlay.textContent = idiom.name;
+                medallion.appendChild(textOverlay);
+
+                if (idiom.status === 'unlocked' || idiom.status === 'completed') {
+                    medallion.addEventListener('click', () => startChallenge(index));
+                }
+                elements.gridContainer.appendChild(medallion);
+            });
+        }
+
+        function startChallenge(index) {
+            currentIdiomIndex = index;
+            currentChallengeType = 0; // Start with match game
+            showScreen('challenge');
+            loadChallenge();
+        }
+
+        function loadChallenge() {
+            elements.challengeFeedback.innerHTML = '';
+            const idiom = idiomData[currentIdiomIndex];
+            elements.challengeTitle.textContent = idiom.name;
+
+            switch (currentChallengeType) {
+                case 0:
+                    elements.challengeSubtitle.textContent = 'Challenge 1 of 3: The Match-Up';
+                    setupMatchGame();
+                    break;
+                case 1:
+                    elements.challengeSubtitle.textContent = 'Challenge 2 of 3: The Story Fill';
+                    setupStoryFillGame();
+                    break;
+                case 2:
+                    elements.challengeSubtitle.textContent = 'Challenge 3 of 3: The Origin Quiz';
+                    setupOriginQuizGame();
+                    break;
+            }
+        }
+
+        function advanceChallenge() {
+            currentChallengeType++;
+            const idiom = idiomData[currentIdiomIndex];
+
+            if (currentChallengeType > 2) {
+                // Challenge complete
+                idiom.status = 'completed';
+                const nextIdiomIndex = currentIdiomIndex + 1;
+                if (nextIdiomIndex < idiomData.length) {
+                    idiomData[nextIdiomIndex].status = 'unlocked';
+                }
+                saveProgress();
+                
+                if (idiomData.every(i => i.status === 'completed')) {
+                    showScreen('completion');
+                } else {
+                    elements.victoryText.textContent = `You have mastered "${idiom.name}"!`;
+                    showScreen('victory');
+                }
+            } else {
+                loadChallenge();
+            }
+        }
+        
+        // --- GAME MECHANICS SETUP ---
+
+        function setupMatchGame() {
+            matchGameData = { selectedItem: null, matchedPairs: 0 };
+            const currentIdiom = idiomData[currentIdiomIndex];
+            
+            const distractors = idiomData
+                .filter(i => i.id !== currentIdiom.id)
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 3);
+
+            const gameItems = [currentIdiom, ...distractors];
+            const idioms = gameItems.map(i => ({id: i.id, text: i.name})).sort(() => 0.5 - Math.random());
+            const meanings = gameItems.map(i => ({id: i.id, text: i.meaning})).sort(() => 0.5 - Math.random());
+            
+            elements.challengeContent.innerHTML = `
+                <p>Match the idiom to its meaning.</p>
+                <div class="match-container">
+                    <div id="match-col-idioms" class="match-column"></div>
+                    <div id="match-col-meanings" class="match-column"></div>
+                </div>
+            `;
+            
+            const idiomsCol = document.getElementById('match-col-idioms');
+            const meaningsCol = document.getElementById('match-col-meanings');
+
+            idioms.forEach(item => {
+                idiomsCol.innerHTML += `<div class="match-item" data-id="${item.id}">${item.text}</div>`;
+            });
+            meanings.forEach(item => {
+                meaningsCol.innerHTML += `<div class="match-item" data-id="${item.id}">${item.text}</div>`;
+            });
+
+            document.querySelectorAll('.match-item').forEach(item => {
+                item.addEventListener('click', handleMatchItemClick);
+            });
+        }
+        
+        function handleMatchItemClick(e) {
+            const clickedItem = e.target;
+            if (clickedItem.classList.contains('matched')) return;
+
+            if (!matchGameData.selectedItem) {
+                matchGameData.selectedItem = clickedItem;
+                clickedItem.classList.add('selected');
+            } else {
+                if (matchGameData.selectedItem.dataset.id === clickedItem.dataset.id && matchGameData.selectedItem !== clickedItem) {
+                    matchGameData.selectedItem.classList.add('matched');
+                    clickedItem.classList.add('matched');
+                    matchGameData.selectedItem.classList.remove('selected');
+                    matchGameData.matchedPairs++;
+                    
+                    if (matchGameData.matchedPairs === 4) {
+                        elements.challengeFeedback.textContent = 'Excellent!';
+                        elements.challengeFeedback.className = 'feedback correct';
+                        setTimeout(advanceChallenge, 1500);
+                    }
+                } else {
+                    matchGameData.selectedItem.classList.remove('selected');
+                }
+                matchGameData.selectedItem = null;
+            }
+        }
+
+        function setupStoryFillGame() {
+            const idiom = idiomData[currentIdiomIndex];
+            const { sentence, options } = idiom.storyFill;
+            const blankedSentence = sentence.replace('______', `<span style="color: var(--terracotta-orange); font-weight:bold;">${idiom.name}</span>`);
+
+            elements.challengeContent.innerHTML = `
+                <p>Choose the correct idiom to complete the sentence.</p>
+                <p class="story-fill-sentence">${sentence}</p>
+                <div id="options-container" class="options-grid"></div>
+            `;
+            
+            const optionsContainer = document.getElementById('options-container');
+            options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = option;
+                btn.addEventListener('click', () => checkStoryFillAnswer(index, blankedSentence));
+                optionsContainer.appendChild(btn);
+            });
+        }
+        
+        function checkStoryFillAnswer(selectedIndex, finalSentence) {
+            const idiom = idiomData[currentIdiomIndex];
+            const optionsContainer = document.getElementById('options-container');
+            const buttons = optionsContainer.children;
+
+            Array.from(buttons).forEach(btn => btn.disabled = true);
+
+            if (selectedIndex === idiom.storyFill.correct) {
+                buttons[selectedIndex].classList.add('correct');
+                elements.challengeFeedback.textContent = 'Correct!';
+                elements.challengeFeedback.className = 'feedback correct';
+                document.querySelector('.story-fill-sentence').innerHTML = finalSentence;
+                setTimeout(advanceChallenge, 2000);
+            } else {
+                buttons[selectedIndex].classList.add('incorrect');
+                buttons[idiom.storyFill.correct].classList.add('correct');
+                elements.challengeFeedback.textContent = 'Not quite. Try the next challenge!';
+                elements.challengeFeedback.className = 'feedback incorrect';
+                setTimeout(advanceChallenge, 2500);
+            }
+        }
+
+        function setupOriginQuizGame() {
+            const idiom = idiomData[currentIdiomIndex];
+            const { question, options } = idiom.originQuiz;
+
+            elements.challengeContent.innerHTML = `
+                <p class="story-fill-sentence">${question}</p>
+                <div id="options-container" class="options-grid"></div>
+            `;
+            
+            const optionsContainer = document.getElementById('options-container');
+            options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = option;
+                btn.addEventListener('click', () => checkQuizAnswer(index));
+                optionsContainer.appendChild(btn);
+            });
+        }
+        
+        function checkQuizAnswer(selectedIndex) {
+            const idiom = idiomData[currentIdiomIndex];
+            const optionsContainer = document.getElementById('options-container');
+            const buttons = optionsContainer.children;
+
+            Array.from(buttons).forEach(btn => btn.disabled = true);
+
+            if (selectedIndex === idiom.originQuiz.correct) {
+                buttons[selectedIndex].classList.add('correct');
+                elements.challengeFeedback.textContent = 'Perfect!';
+                elements.challengeFeedback.className = 'feedback correct';
+                setTimeout(advanceChallenge, 1500);
+            } else {
+                buttons[selectedIndex].classList.add('incorrect');
+                buttons[idiom.originQuiz.correct].classList.add('correct');
+                elements.challengeFeedback.textContent = 'So close! On to the next idiom.';
+                elements.challengeFeedback.className = 'feedback incorrect';
+                setTimeout(advanceChallenge, 2500);
+            }
+        }
+        
+        function restartGame() {
+            localStorage.removeItem('lexiQuestProgress');
+            init();
+        }
+
+        // --- EVENT LISTENERS ---
+        elements.startJourneyBtn.addEventListener('click', () => {
+            renderHub();
+            showScreen('hub');
+        });
+
+        elements.hubBackBtn.addEventListener('click', () => {
+            showScreen('map');
+        });
+
+        elements.challengeBackBtn.addEventListener('click', () => {
+            showScreen('hub');
+        });
+        
+        elements.victoryBtn.addEventListener('click', () => {
+            renderHub();
+            showScreen('hub');
+        });
+        
+        elements.restartBtn.addEventListener('click', restartGame);
+
+        // --- INITIALIZATION ---
+        function init() {
+            loadProgress();
+            showScreen('map');
+        }
+
+        init();
+    });
+    </script>
+</body>
+</html>
